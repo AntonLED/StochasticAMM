@@ -1,0 +1,16 @@
+{
+    "name": "prettier-plugin-md-math",
+    "version": "1.0.0",
+    "description": "Keeps LaTeX math in markdown untouched by Prettier's emphasis normalisation",
+    "type": "module",
+    "main": "./index.mjs",
+    "private": true,
+    "peerDependencies": {
+        "prettier": "^3.0.0"
+    },
+    "dependencies": {
+        "remark-math": "^6.0.0",
+        "remark-parse": "^11.0.0",
+        "unified": "^11.0.5"
+    }
+}

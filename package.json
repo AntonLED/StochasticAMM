@@ -1,0 +1,12 @@
+{
+    "scripts": {
+        "test": "node --test 'tools/**/*.test.mjs'"
+    },
+    "devDependencies": {
+        "prettier": "^3.8.3",
+        "prettier-plugin-md-math": "file:tools/prettier-plugin-md-math",
+        "remark-math": "^6.0.0",
+        "remark-parse": "^11.0.0",
+        "unified": "^11.0.5"
+    }
+}
