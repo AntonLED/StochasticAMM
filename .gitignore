@@ -19,3 +19,18 @@ data/
 
 # Self Notes
 notes/self-notes/
+
+# Latex stuff
+*.aux
+*.bbl
+*.blg
+*.out
+*.fls
+*.fdb_latexmk
+*.nav
+*.snm
+*.toc
+
+# Other stuff
+*.DS_Store
+*.gz
