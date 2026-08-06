@@ -1,6 +1,8 @@
 {
     "scripts": {
-        "test": "node --test 'tools/**/*.test.mjs'"
+        "format": "npm run format:prettier && npm run format:python",
+        "format:prettier": "prettier --write .",
+        "format:python": "ruff format . && ruff check --unsafe-fixes --fix ."
     },
     "devDependencies": {
         "prettier": "^3.8.3",
