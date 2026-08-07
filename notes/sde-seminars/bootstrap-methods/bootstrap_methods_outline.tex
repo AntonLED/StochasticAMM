@@ -1,0 +1,116 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=2.3cm]{geometry}
+\usepackage{amsmath, amssymb}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{parskip}
+
+\definecolor{accent}{HTML}{2a78d6}
+\definecolor{accent2}{HTML}{eb6834}
+
+\titleformat{\section}{\large\bfseries\color{accent}}{\thesection}{0.5em}{}
+\titleformat{\subsection}{\bfseries}{\thesubsection}{0.5em}{}
+
+\setlist[itemize]{leftmargin=1.4em, topsep=2pt, itemsep=2pt}
+
+\title{\vspace{-1.5em}Bootstrap Methods --- Outline}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-2.5em}
+
+This is a reference outline of bootstrap variants, to be trimmed and adapted into the seminar slides. Grouped by what problem each variant solves.
+
+\section{The core split}
+
+\subsection*{Non-parametric (case / Efron's) bootstrap}
+\begin{itemize}
+  \item \textbf{Idea:} resample $X_1^*,\dots,X_n^*$ with replacement directly from the observed data $X_1,\dots,X_n$. No assumption on the shape of $F$ --- we use $\widehat F_n$ (the empirical CDF) as a stand-in for $F$.
+  \item \textbf{Use when:} you don't want to assume a parametric family for $F$; the default choice for standard errors / CIs on statistics like the mean, median, correlation, regression coefficients.
+  \item \textbf{Caveat:} needs i.i.d.\ data; fails for statistics driven by extremes (e.g.\ sample min/max --- see \S\ref{sec:fails}).
+\end{itemize}
+
+\subsection*{Parametric bootstrap}
+\begin{itemize}
+  \item \textbf{Idea:} fit a parametric model $F_{\hat\theta}$ to the data first (e.g.\ $\hat\theta = (\hat\mu,\hat\sigma^2)$ for $N(\mu,\sigma^2)$), then draw bootstrap samples \emph{from the fitted model} $F_{\hat\theta}$, not from the raw data.
+  \item \textbf{Use when:} you're willing to assume a model and want to fold that assumption into the uncertainty estimate (e.g.\ simulating pool dynamics under an assumed price process).
+  \item \textbf{Caveat:} uncertainty estimates are only as good as the parametric assumption; model misspecification silently biases everything downstream.
+\end{itemize}
+
+\section{Extensions for structured / dependent data}
+
+\subsection*{Residual bootstrap (regression)}
+\begin{itemize}
+  \item \textbf{Idea:} fit $Y_i = \hat Y_i + \hat\varepsilon_i$, resample the \emph{residuals} $\hat\varepsilon_i$ with replacement, add them back to the fitted values to build new synthetic responses $Y_i^* = \hat Y_i + \varepsilon_i^*$.
+  \item \textbf{Use when:} regression setting, errors roughly i.i.d.\ and homoscedastic.
+\end{itemize}
+
+\subsection*{Wild bootstrap}
+\begin{itemize}
+  \item \textbf{Idea:} like residual bootstrap, but instead of permuting residuals, multiply each residual by an independent random weight $v_i$ (commonly $\pm1$ with prob.\ $\tfrac12$): $\varepsilon_i^* = v_i\,\hat\varepsilon_i$.
+  \item \textbf{Use when:} regression with \emph{heteroscedastic} errors --- residual bootstrap breaks here because it mixes residuals across observations with different variance; wild bootstrap keeps each residual's magnitude tied to its own observation.
+\end{itemize}
+
+\subsection*{Block bootstrap (moving / circular block)}
+\begin{itemize}
+  \item \textbf{Idea:} resample whole contiguous \emph{blocks} of consecutive observations (length $\ell$), not single points, then concatenate blocks to build the synthetic series.
+  \item \textbf{Use when:} time series / dependent data --- preserves short-range local dependence within a block.
+  \item \textbf{Caveat:} results are sensitive to block length $\ell$; too short $\Rightarrow$ dependence is destroyed, too long $\Rightarrow$ too few blocks to resample from.
+\end{itemize}
+
+\subsection*{Stationary bootstrap}
+\begin{itemize}
+  \item \textbf{Idea:} block bootstrap with random block length (geometric distribution) instead of fixed $\ell$ (Politis \& Romano, 1994).
+  \item \textbf{Use when:} same as block bootstrap, but you want the result to not hinge on picking one fixed block length.
+\end{itemize}
+
+\subsection*{Bayesian bootstrap}
+\begin{itemize}
+  \item \textbf{Idea:} instead of resampling with replacement (equivalent to random \emph{integer} weights on each point), draw continuous random weights $(w_1,\dots,w_n) \sim \mathrm{Dirichlet}(1,\dots,1)$ and use them directly, e.g.\ $\bar X^* = \sum_i w_i X_i$.
+  \item \textbf{Use when:} want a Bayesian-flavored uncertainty quantification without specifying a prior/likelihood explicitly; smoother than the classic bootstrap (no repeated/duplicated points).
+\end{itemize}
+
+\subsection*{Smoothed bootstrap}
+\begin{itemize}
+  \item \textbf{Idea:} after resampling a point $X_i^*$, add a small amount of noise (kernel smoothing on $\widehat F_n$) instead of returning the exact original value.
+  \item \textbf{Use when:} avoids the ``lumpy''/discrete look of the raw empirical distribution; useful when the statistic is sensitive to ties or discreteness.
+\end{itemize}
+
+\section{Bootstrap variants for hard cases}
+
+\subsection*{$m$-out-of-$n$ bootstrap / subsampling}
+\begin{itemize}
+  \item \textbf{Idea:} resample only $m \ll n$ points (with or without replacement) instead of $n$, then rescale the result.
+  \item \textbf{Use when:} the ordinary bootstrap is \emph{inconsistent} --- e.g.\ statistics at the boundary of the parameter space, or extreme-value statistics like the sample min/max (see \S\ref{sec:fails}: the standard bootstrap concentrates too much mass at the observed extreme; a smaller resample size reduces the chance of re-selecting it every time).
+  \item \textbf{Caveat:} need to choose $m$; asymptotics require $m\to\infty$, $m/n \to 0$.
+\end{itemize}
+
+\section{When the bootstrap fails}
+\label{sec:fails}
+
+Classic example: $X_1,\dots,X_n \sim \mathrm{Uniform}[0,1]$, $M_n = \min\{X_i\}$. True distribution: $nM_n \xrightarrow{d} \mathrm{Exp}(1)$ (smooth). Bootstrap distribution of $n(M_n^*-M_n)$: with probability $1-e^{-1}\approx 63\%$ the bootstrap resample never re-draws the true minimum, so $M_n^*=M_n$ exactly --- a huge chunk of probability piles up at a single point instead of spreading out smoothly. \emph{(See \texttt{figures/bootstrap\_failure\_plot.pdf} vs.\ \texttt{bootstrap\_success\_plot.pdf} for the visual side-by-side.)}
+
+\textbf{General lesson:} the bootstrap struggles whenever the statistic is driven by a small number of extreme/boundary observations (min, max, tail quantiles) rather than averaging smoothly over the whole sample. Fix: $m$-out-of-$n$ bootstrap, or a purpose-built asymptotic theory instead of resampling.
+
+\section{Quick relevance map (Curve pool parameter tuning)}
+
+\begin{center}
+\begin{tabular}{@{}p{3.6cm}p{5.4cm}p{5.4cm}@{}}
+\toprule
+\textbf{Method} & \textbf{Where it helps} & \textbf{Watch out for} \\
+\midrule
+Non-parametric (case) & CIs on realized vol, impermanent loss, slippage --- no distributional assumption & needs i.i.d.; breaks for tail/extreme stats \\
+Parametric & simulate pool behavior under an assumed price process before it's observed & garbage in $\Rightarrow$ garbage out if the model is wrong \\
+Block / stationary & on-chain time series (prices, volumes, LP flows) --- dependent, not i.i.d.\ & block length choice \\
+Wild & regression of fees/slippage on pool state with heteroscedastic noise & only for regression residuals \\
+$m$-out-of-$n$ & CIs for tail risk / worst-case drawdown, liquidation risk (extreme-value-like statistics) & choosing $m$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\end{document}
