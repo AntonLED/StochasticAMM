@@ -28,8 +28,8 @@
 \usetikzlibrary{positioning}     % For relative node placement
 
 \title{Some Statistics and Bootstrap Methods}  % Presentation title
-\author{aled}                % Presentation author
-\institute{SDE seminars}          % Author affiliation
+% \author{aled}                % Presentation author
+% \institute{SDE seminars}          % Author affiliation
 \date{\today}                  % Today's date
 
 \begin{document}
@@ -53,16 +53,19 @@
 %  <content>
 %\end{frame}
 
-\section{Statistics Foundations}
+\section{Statistical Inference}
 
-\begin{frame}{Foundations of Statistics}
-  \textit{Statistical inference} == learning in computer science. \\
+\begin{frame}{What is Statistical Inference?}
 
-  we use data to infer the distribution that this data comes from
+  \textit{Statistical inference} == what is the nature of our data, and where does it come from?
+  We use a small sample of data to infer the distribution that this data comes from. \\
 
-  \boxed{\text{given a sample } X_1 \hdots X_n \sim F, \text{ how do we learn something about } F?}
+  \begin{center}
+    \fbox{\parbox{0.85\linewidth}{\centering
+        given a sample $X_1 \hdots X_n \sim F$, we need to learn something about $F$
+    }}
+  \end{center}
 
-  \vspace{0.5cm}
   \centering
   to answer this, we first need to choose what kind of \textit{model} for $F$ we're willing to assume
 
@@ -73,18 +76,19 @@
     \node[box, fill=blue!5] (param) {
       \textbf{Parametric} \\
 
-      test1
+      $F = F_\theta$ for some $\theta \in \mathbb{R}^d$, $d$ \textbf{fixed} (doesn't grow with $n$) \\[4pt]
+      e.g.\ $F = N(\mu, \sigma^2)$, $\theta = (\mu, \sigma^2)$
     };
     \node[box, fill=orange!5, right=0.6cm of param] (nonparam) {
       \textbf{Non-parametric} \\
 
-      test2
+      no finite-dim $\theta$: the "parameter" \textit{is} $F$ itself \\[4pt]
+      e.g.\ empirical CDF $\widehat{F}_n$, kernel density estimate
     };
   \end{tikzpicture}
-
 \end{frame}
 
-\begin{frame}{What is Statistical Inference?}
+\begin{frame}
   Inferential problems can be classified into three main categories:
 
   \vline
@@ -100,32 +104,43 @@
     \node[box, fill=green!5, right=0.2cm of estimation] (confidence) {
       \textbf{Confidence Sets} \\
 
-      when we provide an interval $C_n = (a, b)$ that traps the parameter $\theta$ with probability $1 - \alpha$
+      when we provide a random interval $C_n = (a, b)$ that contains the fixed $\theta$ with probability $1 - \alpha$
     };
     \node[box, fill=blue!5, below=0.2cm of estimation] (hypothesis) {
       \textbf{Hypothesis Testing} \\
 
       when we start with some "default theory" \textbf{null hypothesis} $H_0$ and an \textbf{alternative hypothesis} $H_1$, and we want to decide based on our data which one is more likely to be true
     };
-  \end{tikzpicture}x
+    \node[align=left, text width=4.9cm, inner sep=6pt, font=\scriptsize, below=0.15cm of confidence] (functionals) {
+      \textbf{Statistical Functionals} \\
+      all three above are about some $T(F)$.
+      Plug-in: estimate $T(F)$ by $T(\widehat{F}_n)$ --
+      computable directly (mean, median etc). \\
+      The hard part is the \textit{accuracy} of $T(\widehat{F}_n)$:
+      its se, bias, CI require the \textbf{distribution of $T_n$
+      over samples} --- and we only observed one sample.
+      Manufacturing that distribution by sampling from
+      $\widehat{F}_n$ is exactly the \textbf{bootstrap}.
+    };
+  \end{tikzpicture}
 \end{frame}
 
-\begin{frame}{More About Confidence Sets}
-  We have an interval  $C_n = (a, b)$ where $a = a(X_1, \hdots, X_n)$ and $b = b(X_1, \hdots, X_n)$ are functions of the data such that
-  \begin{equation}
-    \mathbb{P}_\theta(\theta \in C_n) = 1 - \alpha, \text{for all } \theta \in \Theta.
-  \end{equation}
+% \begin{frame}{More About Confidence Sets}
+%   We have an interval  $C_n = (a, b)$ where $a = a(X_1, \hdots, X_n)$ and $b = b(X_1, \hdots, X_n)$ are functions of the data such that
+%   \begin{equation}
+%     \mathbb{P}_\theta(\theta \in C_n) = 1 - \alpha, \text{for all } \theta \in \Theta.
+%   \end{equation}
 
-  When $\theta$ is a vector than $C_n$ is a neighborhood called a \textbf{Confidence Set}.
+%   When $\theta$ is a vector than $C_n$ is a neighborhood called a \textbf{Confidence Set}.
 
-  \begin{alertblock}{Warning \#1}
-    $C_n$ is \textbf{random} and $\theta$ is \textbf{fixed}.
-  \end{alertblock}
-  \begin{alertblock}{Warning \#2}
-    There is so much confusion about how to interpret the confidence interval.
-  \end{alertblock}
+%   \begin{alertblock}{Warning \#1}
+%     $C_n$ is \textbf{random} and $\theta$ is \textbf{fixed}.
+%   \end{alertblock}
+%   \begin{alertblock}{Warning \#2}
+%     There is so much confusion about how to interpret the confidence interval.
+%   \end{alertblock}
 
-\end{frame}
+% \end{frame}
 
 % \begin{frame}{Slide with two columns}
 %   \begin{columns}
@@ -137,7 +152,7 @@
 %   \end{columns}
 % \end{frame}
 
-\section{Bootstrap Methods: why we need it?}
+\section{Bootstrap methods: why we need it?}
 
 \begin{frame}{Bootstrap Methods}
   The \textbf{bootstrap} is a method for estimating \textit{standard errors} and \textit{computing
@@ -160,34 +175,39 @@
     }}
   \end{center}
 
+  \footnotesize
   \begin{exampleblock}{btw}
-    now for out statistic we can calculate (almost) whatever we want:
-    bias,  variance,  MSE, build confidential intervals and so on.
+    now for our statistic we can calculate (almost) whatever we want:
+    bias, variance, MSE, build confidence intervals and so on.
   \end{exampleblock}
 
 \end{frame}
 
 \subsection{Classic Bootstrap (in Deep)}
 
-\begin{frame}{{\renewcommand{\thefootnote}{\fnsymbol{footnote}} Classic Bootstrap \footnote{\textit{empirical bootstrap} / \textit{nonparametric bootstrap} / \textit{Efron's bootstrap}}}: how does it works?}
+\begin{frame}{{\renewcommand{\thefootnote}{\fnsymbol{footnote}} Classic Bootstrap \footnote{\textit{empirical bootstrap} / \textit{nonparametric bootstrap} / \textit{Efron's bootstrap}}}: how does it work?}
 
   \begin{figure}
     \centering
-    \includegraphics[width=1\textwidth]{figures/bootstrap_scheme.pdf}
+    \includegraphics[width=1\textwidth]{figures/bootstrap_scheme.pdf}\\[1em]
+    \includegraphics[width=1\textwidth]{figures/bootstrap_scheme_steps.pdf}
   \end{figure}
 
+  \footnotesize
   \begin{exampleblock}{btw}
     bootstrap is the method to get an \textit{ensemble} from a single process realization.
   \end{exampleblock}
 
 \end{frame}
 
-\begin{frame}{Classic Bootstrap: how does it works?}
-  Our goal is to estimate the error of sample \textit{median} (or some other \textit{statistic}) and construct the corresponding confidence interval. \\
+\begin{frame}
+  Our goal is to make statistical inference of sample \textit{median}
+  (or some other \textit{statistic} of the original sample):
+  estimate bias, build confidential intervals etc.
 
   \vspace{1em}
 
-  Assume we have a sample $X_1, \hdots, X_n$ from an unknown distribution $F$ and let $M_n = \text{med}\{X_1 \hdots X_n\}$. \\
+  Assume we have a sample $X_1, \hdots, X_n$ from an unknown distribution $F$ and let $M_n = \text{med}\{X_1 \hdots X_n\}$.
 
   \vspace{1em}
 
@@ -200,7 +220,7 @@
   \end{align*}
 \end{frame}
 
-\begin{frame}{Classic Bootstrap: how does it works?}
+\begin{frame}
   We have $B$ \textit{bootstrap samples} and we can compute the corresponding \textit{bootstrap medians}:
   \begin{align*}
     M_n^{*(1)} = \text{med}\{X_1^{*(1)} \hdots X_n^{*(1)}\} \\
@@ -211,7 +231,7 @@
 
 \end{frame}
 
-\begin{frame}{Classic Bootstrap: how does it works?}
+\begin{frame}
   And now we can compute some really cool things:
   \begin{enumerate}
     \item \textbf{Bootstrap estimate of the variance}:
@@ -229,7 +249,7 @@
   \end{enumerate}
 \end{frame}
 
-\begin{frame}{Classic Bootstrap: why does it works?}
+\begin{frame}{Classic Bootstrap: why does it work?}
   Little weird, isn't it? We generate "new" datapoints from the original single sample we have. Does it make sense? \textbf{Under some conditions -- yes}! \\
 
   \vspace{1em}
@@ -247,17 +267,17 @@
 
 \end{frame}
 
-\begin{frame}{Classic Bootstrap: why does it works?}
-  When we building our bootstrap samples, what is the distribution we are sampling from?
+\begin{frame}
+  When we are building our bootstrap samples, what is the distribution we are sampling from?
 
   \vspace{1em}
 
-  Let write a EDF (Empirical Distribution Function) for our original sample:
+  Let's write an EDF (Empirical Distribution Function) for our original sample:
   \begin{equation}
     \widehat{F}_n(x) = \frac{1}{n}\sum_{i=1}^{n}\mathbb{I}(X_i \leq x).
   \end{equation}
 
-  Now generate \textmd{IID} $Z_1, \hdots, Z_n$ sample from $\widehat{F}_n$. \\
+  Now generate an \textmd{iid} sample $Z_1, \hdots, Z_n$ from $\widehat{F}_n$. \\
 
   For each $Z_j, \; j = \overline{1, n}$ we have:
   \begin{equation}
@@ -268,8 +288,8 @@
 
 \end{frame}
 
-\begin{frame}{Classic Bootstrap: why does it works?}
-  Thus, we can obtain that each bootstrap sample is an \textmd{IID} sample from $\widehat{F}_n$:
+\begin{frame}
+  Thus, we can obtain that each bootstrap sample is an \textmd{iid} sample from $\widehat{F}_n$:
 
   \begin{align*}
     X_1^{*(1)} \hdots X_n^{*(1)} \sim \widehat{F}_n \\
@@ -284,7 +304,7 @@
   \end{equation}
 \end{frame}
 
-\begin{frame}{Classic Bootstrap: why does it works?}
+\begin{frame}
   We know that $\widehat{F}_n \approx F$ with $n \rightarrow  \infty$ and remember that $\Psi$ is \textit{smooth} with respect to $F$, so we can conclude that:
   \begin{align}
     &\widehat{F}_n \approx F \\
@@ -299,27 +319,27 @@
   \end{center}
 \end{frame}
 
-\begin{frame}{Classic Bootstrap: why does it works?}
+\begin{frame}
 
   This has many implications, for example, we can now estimate the variance of the median:
   \begin{equation*}
     \mathbb{V}(M_n) \approx \mathbb{V}(M_n^{*(b)}) \approx \widehat{\mathbb{V}}_B(M_n).
   \end{equation*}
 
-  Also we can \textbf{generalize} this statements to many other statistics:
+  Also we can \textbf{generalize} these statements to many other statistics:
   \begin{itemize}
     \item quantiles;
-    \item skewness (related to $\mathbb{E}(X^3)$);
-    \item kurtosis (related to $\mathbb{E}(X^4)$);
+    \item $\mathbb{E}(X^3)$ (skewness);
+    \item $\mathbb{E}(X^4)$ (kurtosis);
     \item $\hdots$
   \end{itemize}
 
 \end{frame}
 
-\begin{frame}{Classic Bootstrap: when it does not works?}
-  $X_1 \hdots X_n \sim \text{Uni}[0, 1]$ and statistic $M_n = \min{\{X_1 \hdots X_n\}}$.  It's known that $n M_n \sim \text{Exp}(1)$.
-
-  Let's do the staff: $X_1^* \hdots X_n^*$ and $M_n^* = \min{\{ X_1^* \hdots X_n^* \}}$.
+\begin{frame}{Classic Bootstrap: when does it not work?}
+  $X_1 \hdots X_n \sim \text{Uni}[0, 1]$ and statistic $M_n = \min{\{X_1 \hdots X_n\}}$.
+  It's known that $n M_n \sim \text{Exp}(1)$.
+  Let's do the stuff: $X_1^* \hdots X_n^*$ and $M_n^* = \min{\{ X_1^* \hdots X_n^* \}}$.
 
   The bootstrap minimum sits on an observed point $M_n$ with probability:
   \begin{align*}
@@ -340,7 +360,7 @@
 
 \end{frame}
 
-\begin{frame}{Classic Bootstrap: when it does not works?}
+\begin{frame}
   \begin{figure}
     \centering
     \includegraphics[width=1\textwidth]{figures/bootstrap_failure_plot.pdf}
@@ -376,7 +396,7 @@
       \node[box, fill=blue!5] (classic) {
         \textbf{Classic / empirical} \\
         resample points from $\widehat{F}_n$ \\
-        \textit{assumes: IID}
+        \textit{assumes: \textmd{iid}}
       };
       \node[box, fill=orange!5, right=0.35cm of classic] (param) {
         \textbf{Parametric} \\
@@ -404,45 +424,159 @@
   as the exchangeable unit and \textbf{where} the randomness is injected.
 \end{frame}
 
-\subsection{Block Bootstrap}
+\section{What do we need from bootstrap?}
 
-\begin{frame}{Today: the Block Bootstrap}
-  Why this member of the family? Because of \textbf{our} data. \\
+\begin{frame}{Why do we need a different bootstrap?}
 
-  \vspace{0.8em}
-  Financial returns violate the IID assumption in a specific way:
-  \begin{itemize}
-    \item autocorrelation of $r_t$ is $\approx 0$ --- looks IID at first glance...
-    \item ...but autocorrelation of $r_t^2$ persists for weeks:
-      calm and stormy periods come in \textbf{streaks}
-      (volatility clustering);
-    \item pool metrics (fees, impermanent loss) are functionals of the
-      \textit{path} --- they feel the streaks, not just the histogram
-      of returns.
-  \end{itemize}
+  \vspace{-1.5em}
 
-  \vspace{0.8em}
   \begin{center}
-    \fbox{\parbox{0.88\linewidth}{\centering
-        Naive bootstrap destroys the streaks $\Rightarrow$ underestimates risk. \\
-        \textbf{Part II:} resample blocks, keep the streaks ---
-        and what this buys a risk team.
+    \fbox{\parbox{0.85\linewidth}{\centering
+        \begin{enumerate}
+          \item \textit{We picked params $(A, \text{mid\_fee})$
+            for our pool. Were we lucky or are these actually good parameters?}
+          \item \textit{What happens to the pool if the market plays out differently than 2025?}
+          \item \textit{How confident are we in our parameters?}
+        \end{enumerate}
     }}
   \end{center}
+
+  \vspace{.5em}
+
+  But the classic way we bootstrap cannot be applied to a price series directly, for two reasons:
+  \begin{enumerate}
+    \item \textbf{We need to resample not directly prices but log-returns}: because they are stationary and
+      are more suitable for permutations;
+    \item \textbf{\textmd{iid} kills volatility clustering}: we may overestimate fees and underestimate risk. So we have to resample not single
+      price points but continuous blocks of consecutive prices;
+  \end{enumerate}
 \end{frame}
 
-\begin{frame}{Slide with references}
-  % This is to reference a figure (Figure \ref{fig:figure1})\\
-  % This it to reference a table (Table \ref{tab:table1})\\
-  This is to cite an article \cite{Ahmed2018a}\\
-  This is to add an article to the references without mentioning in the text \nocite{Ahmed2018a}\\
+\begin{frame}{Offtop: why do we need log-returns instead of prices?}
+  \vspace{-1em}
+  \begin{columns}[T]
+    \begin{column}{0.32\textwidth}
+      \footnotesize
+      \begin{align*}
+        &\text{raw } P_t \text{'s} \\
+        &\rightarrow  r_t \equiv \log{(P_{t + 1} / P_t)} \\
+        &\rightarrow  \text{make } r_t^* \text{'s} \\
+        &\rightarrow \text{rebuild } P_t^* = P_0 \cdot \exp{\left( \sum_{s \leq t} r_s^* \right)}
+      \end{align*}
+    \end{column}
+    \begin{column}{0.68\textwidth}
+      \vspace{1.em}
+      \centering
+      \includegraphics[width=\textwidth]{figures/btc_2022_real.pdf}
+    \end{column}
+  \end{columns}
+
+  % \vspace{-0.6em}
+  \includegraphics[width=\textwidth]{figures/btc_2022_naive.pdf}
+
+  \vspace{-0.6em}
+  \includegraphics[width=\textwidth]{figures/btc_2022_logreturn.pdf}
+\end{frame}
+
+\subsection{Block bootstrap}
+
+\begin{frame}{Block Bootstrap: how does it work?}
+  Simple idea: \textbf{blocks} instead of \textbf{dots} like it was in classic bootstrap!
+
+  \vspace{-1em}
+
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.7\textwidth]{figures/block_bootstrap_scheme.pdf}
+  \end{figure}
+
+  \vspace{-1em}
+
+  \begin{itemize}
+    \item $L \rightarrow 1$: classic bootstrap, back to \textmd{iid} case;
+    \item $L \rightarrow n$: replicas all look like the original sample, no diversity;
+  \end{itemize}
+
+  \footnotesize
+  \begin{exampleblock}{btw}
+    \begin{itemize}
+      \item there are no permutations inside a block, we keep the order of days intact;
+      \item practical choice: $L \sim n^{1/3}$;
+    \end{itemize}
+  \end{exampleblock}
+
+\end{frame}
+
+\begin{frame}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/btc_paths_iid_vs_block.pdf}
+  \end{figure}
+
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/btc_acf_squared_returns.pdf}
+  \end{figure}
+
+\end{frame}
+
+\section{What have we gained?}
+
+\begin{frame}{Payoff: what have we gained?}
+  Now we can answer some genuinely useful questions:
+  \begin{enumerate}
+    \item \textbf{Interval-like questions}: "Given a historical price path and
+      a chosen set of parameters, what return could the LP have earned?" $\rightarrow$
+      \fbox{\parbox{.75\linewidth}{\centering
+          LP return falls in $[1.1, 1.5]$ in 95\% of scenarios
+      }}
+    \item \textbf{Tail-like questions}: "Given a historical price path and
+      a chosen set of parameters, what return could the LP have earned in the
+      worst case?" $\rightarrow$
+      \fbox{\parbox{.45\linewidth}{\centering
+          in the worst 5\% of scenarios, return is below 1.05
+      }}
+    \item \textbf{Distribution-like statements}: "Given a historical price
+      path and a chosen set of parameters, what should the LP expect on
+      average?" $\rightarrow$
+      \fbox{\parbox{.5\linewidth}{\centering
+          under these market conditions, the average return is 1.3
+      }}
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{Putting It All Together}
+  \begin{center}
+    \includegraphics[width=0.98\textwidth]{figures/pipeline_scheme.pdf}
+  \end{center}
+
+  \vspace{0.8em}
+  \footnotesize
+  Bootstrap historical price \textbf{paths} $\rightarrow$ run the AMM
+  \textbf{grid simulation} for every candidate parameter set $\rightarrow$
+  \textbf{filter} out the clearly bad ones $\rightarrow$ \textbf{cluster} the
+  survivors into distinct parameter regimes $\rightarrow$ \textbf{MCS
+  bootstrap} to test which regimes are statistically indistinguishable from
+  the best $\rightarrow$ \textbf{PBO}: how much of that "best" is just
+  backtest overfitting.
 \end{frame}
 
 \section{References}
 % Adding the option 'allowframebreaks' allows the contents of the slide to be expanded in more than one slide.
 \begin{frame}[allowframebreaks]{References}
+  \nocite{*}
   \bibliographystyle{apalike}
   \tiny\bibliography{references}
+\end{frame}
+
+\begin{frame}{Questions}
+  \begin{enumerate}
+    \item Statistic Functionals: is it necessary for statistic to have a way to write it in integral form?
+      (e.g. for median we have no integral form while for mean $\mu = \int x dF(x)$)
+    \item Why bootstrap isn't working for extreme functions ($\text{min} / \text{max} \{X_1 \hdots X_n\}$)
+      but for median it is?
+    \item $\hdots$
+  \end{enumerate}
 \end{frame}
 
 \end{document}
