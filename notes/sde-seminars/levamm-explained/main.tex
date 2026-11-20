@@ -1,0 +1,400 @@
+% !TeX program = xelatex
+\documentclass[aspectratio=169,11pt]{beamer}
+\usetheme{Madrid}
+\usefonttheme[onlymath]{serif}
+\setbeamertemplate{navigation symbols}{}
+\usepackage[english]{babel}
+\usepackage{amsmath,tikz}
+
+\title[LevAMM]{How LevAMM targets \texorpdfstring{$2\times$}{2x} leverage}
+\subtitle{From the Uniswap v2 invariant to a leverage-sensitive price}
+\date{\today}
+
+\begin{document}
+\begin{frame}[plain,noframenumbering]
+  \titlepage
+\end{frame}
+
+\section{What does LevAMM manage?}
+\tikzset{
+  market/.style={draw=structure.fg!55,fill=structure.fg!5,rounded corners=2pt,
+  minimum width=2.5cm,minimum height=.8cm,align=center,font=\small},
+  role/.style={font=\scriptsize,align=center},
+  route/.style={->,>=stealth,thick}
+}
+
+\begin{frame}{Who funds and configures a Yield Basis market?}
+  \centering
+  \begin{tikzpicture}
+    \node[market] (curve) at (-5,1) {Curve DAO};
+    \node[market] (yb) at (-5,-1) {YB DAO};
+    \node[market] (factory) at (0,0) {YB Factory\\\texttt{add\_market()}};
+    \node[market,fill=structure.fg!11] (market) at (5,0)
+    {cbBTC market\\[3pt]\texttt{LT} + \texttt{AMM}\\LP oracle};
+    \draw[route] (curve.east) -- node[role,above,sloped]{crvUSD credit line} (factory.north west);
+    \draw[route] (yb.east) -- node[role,below,sloped]{market parameters} (factory.south west);
+    \draw[route] (factory) -- node[role,above]{deploys contracts} node[role,below]{allocates crvUSD} (market);
+  \end{tikzpicture}
+
+  \bigskip
+  The Factory links the market to an existing cbBTC/crvUSD Curve pool.\\
+  The YB DAO controls the market allocation, borrowing rate and AMM fee.
+
+  \medskip
+  {\scriptsize\href{https://gov.curve.finance/t/create-a-crvusd-credit-line-to-yield-basis/10774}{Curve DAO credit line}
+  \quad$\cdot$\quad\href{https://docs.yieldbasis.com/dev/overview}{Yield Basis contract architecture}}
+\end{frame}
+
+\begin{frame}{What moves when a user deposits cbBTC?}
+  \framesubtitle{Before the first loan, the market's allocated crvUSD sits in its LevAMM contract.}
+  \centering
+  \begin{tikzpicture}
+    \node[market] (user) at (-5,2.7) {Depositor};
+    \node[market] (vault) at (0,2.7) {\textbf{LT contract}\\market vault};
+    \node[market] (pool) at (5,2.7) {Curve pool};
+    \node[market,fill=structure.fg!12] (amm) at (0,.25) {\textbf{LevAMM}\\undrawn crvUSD reserve $R$};
+    \node[market] (oracle) at (-5,.25) {LP oracle};
+    \draw[route] ([yshift=2mm]user.east) -- node[role,above]{cbBTC} ([yshift=2mm]vault.west);
+    \draw[route] ([yshift=-2mm]vault.west) -- node[role,below]{yb-cbBTC shares} ([yshift=-2mm]user.east);
+    \draw[route] (vault) -- node[role,above]{cbBTC + crvUSD} (pool);
+    \draw[route] (amm) -- node[role,left]{LT draws crvUSD} node[role,right]{$R\downarrow$} (vault);
+    \draw[route] (pool.south) |- node[role,near end,above]{$Q$ LP tokens} (amm.east);
+    \draw[route,dashed] (oracle) -- node[role,above]{LP price $p_0$} (amm);
+    \node[role,below=2pt] at (amm.south) {Books LP collateral $V=p_0Q$ and market debt $B\uparrow$};
+  \end{tikzpicture}
+
+  \bigskip
+  \small Optional staking:\quad
+  yb-cbBTC shares $\longrightarrow$ \texttt{LiquidityGauge} $\longrightarrow$
+  \textbf{YB} token rewards.\\[2pt]
+  {\scriptsize\color{black!55}YB holders can lock YB for veYB voting power.}
+\end{frame}
+
+\begin{frame}{What does LevAMM manage?}
+  \begin{columns}[c,onlytextwidth]
+    \begin{column}{.58\textwidth}
+      \begin{tabular}{@{}ll@{}}
+        \structure{\Large $R$} & \textbf{Available reserve}\\
+        & crvUSD available to lend.\\[.65em]
+        \structure{\Large $V$} & \textbf{Collateral value}\\
+        & $Q$ LP tokens at price $p_0$: $V=p_0Q$.\\[.65em]
+        \structure{\Large $B$} & \textbf{Outstanding debt}\\
+        & crvUSD borrowed against the collateral.
+      \end{tabular}
+    \end{column}
+    \begin{column}{.36\textwidth}
+      {\small Credit capacity: $C=R+B=\text{const}$}\par\smallskip
+      \href{https://github.com/yield-basis/yb-core/blob/master/contracts/AMM.vy\#L439-L445}
+      {\includegraphics[width=\linewidth]{figures/max-debt.png}}\par
+      {\scriptsize\color{black!60}\href{https://github.com/yield-basis/yb-core/blob/master/contracts/AMM.vy\#L439-L445}{Contract source: \texttt{AMM.vy}, \texttt{max\_debt()}}}
+    \end{column}
+  \end{columns}
+  \bigskip
+  At fixed $C$ and $p_0$, these balances describe the whole market:
+  \[
+    (Q,B)\quad\longmapsto\quad (R,V,B)=(C-B,\ p_0Q,\ B).
+  \]
+  \begin{block}{What does a depositor own?}
+    LT issues yb-LP shares. Holding a fraction $\alpha$ of the shares gives
+    exposure to $\alpha(V-B)$ of market equity. The unused credit $R$ stays
+    available for future borrowing.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Why target $2\times$ leverage?}
+  \centering
+  {\large Small price moves, in percent}
+  \[
+    \underbrace{\text{cbBTC}}_{\text{asset price}}
+    \quad\xrightarrow{\;\times\,\tfrac12\;}\quad
+    \underbrace{\text{LP}}_{\text{square-root exposure}}
+    \quad\xrightarrow{\;\times\,2\;}\quad
+    \underbrace{\text{Equity}}_{\text{same gain on half the capital}}
+  \]
+  \medskip
+  \structure{\textbf{At $2\times$, equity moves one-for-one with cbBTC.}}
+
+  \bigskip
+  {\scriptsize\href{https://docs.yieldbasis.com/user/economics/math-primer}{Yield Basis Math Primer, \S\S1--2}}
+\end{frame}
+
+\section{How should the pool quote?}
+\begin{frame}{Quick primer about the pool's marginal price $m$}
+  \begin{columns}[c,onlytextwidth]
+    \begin{column}{.53\textwidth}
+      Suppose the pool holds $x$ apples and $y$ bananas.
+      A trader gives it apples ($\Delta x>0$) and receives bananas ($\Delta y<0$).
+      \[
+        \underbrace{\frac{-\Delta y}{\Delta x}}_{\text{bananas per apple}}
+        \quad\xrightarrow{\ \Delta x\to 0\ }\quad
+        m=-\frac{\mathrm dy}{\mathrm dx}.
+      \]
+    \end{column}
+    \begin{column}{.43\textwidth}
+      \ifdefined\FermatFruit
+      \centering
+      {\usebeamercolor[fg]{structure}\bfseries Fermat's Last Fruit Theorem}\par
+      \smallskip
+      {\small For any positive whole numbers of apples and bananas, and any integer $n>2$,}
+      \[
+        \sqrt[n]{%
+          \vphantom{A}\raisebox{-.2em}{\includegraphics[height=1.45em]{figures/apple.png}}^{n}
+          +
+          \vphantom{A}\raisebox{-.2em}{\includegraphics[height=1.45em]{figures/banana.png}}^{n}
+        }\notin\mathbb{N}.
+      \]
+      {\scriptsize\itshape The proof won't fit in this margin.}
+      \else
+      \includegraphics[width=\linewidth]{figures/fruit-puzzle-captioned.png}
+      \fi
+    \end{column}
+  \end{columns}
+
+  \begin{block}{For our pool}
+    Replace apples with LP tokens ($x=Q$) and bananas with crvUSD ($y=R$).
+    \[
+      m=-\frac{\mathrm dR}{\mathrm dQ}
+      \qquad \text{crvUSD paid per LP token.}
+    \]
+  \end{block}
+  The oracle quotes $p_0$ in the same units, so we can compare the two prices.
+\end{frame}
+
+\begin{frame}{Where should arbitrage stop?}
+  Equity is the part of the collateral value left after repaying the debt:
+  \[
+    E=V-B,\qquad L=\frac{V}{E}=\frac{V}{V-B}.
+  \]
+  \begin{block}{The design requirement}
+    Arbitrage should run out of spread precisely when debt equals equity:
+    \[
+      \underbrace{m=p_0}_{\text{no marginal arbitrage}}
+      \quad\Longleftrightarrow\quad
+      \underbrace{V=2B}_{L=2}.
+    \]
+  \end{block}
+  We hold $p_0$ fixed and ignore fees.
+\end{frame}
+
+\begin{frame}{What about the Uniswap v2?}
+  For the constant-product curve $RQ=k$, the slope gives $m=-\mathrm dR/\mathrm dQ=R/Q$.
+  \[
+    \underbrace{m=p_0}_{\text{arbitrage stops}}
+    \quad\Longleftrightarrow\quad
+    \underbrace{R=p_0Q=V}_{\text{equal reserve values}}.
+  \]
+
+  \begin{block}{The $2\times$ leverage condition}
+    The position has $2\times$ leverage when $V=2B$.
+    At price parity, this would require $R=2B$ as well.
+  \end{block}
+
+  Price parity fixes $R/Q=p_0$. The debt $B$ does not enter that condition.
+
+  \medskip
+  {\scriptsize\href{https://app.uniswap.org/whitepaper.pdf}{Uniswap v2 Core, \S2.2}}
+\end{frame}
+
+\begin{frame}{Keep the constant product. Choose its two reserves.}
+  \begin{columns}[c,onlytextwidth]
+    \begin{column}{.62\textwidth}
+      We keep the CPMM invariant $xy=I$. For LevAMM, choose
+      \[
+        \underbrace{x=Q}_{\text{Curve LP tokens held}}
+        \qquad
+        \underbrace{y=f(R)}_{\text{virtual crvUSD reserve}}.
+      \]
+      Here $R$ is the actual crvUSD balance. At fixed credit capacity $C$,
+      the debt $B$ determines it through $R=C-B$.
+    \end{column}
+    \begin{column}{.34\textwidth}
+      \includegraphics[width=\linewidth]{figures/roll-safe.png}
+    \end{column}
+  \end{columns}
+
+  \medskip
+  \begin{block}{The invariant and the slope in virtual reserves}
+    \[
+      f(R)\,Q=I
+      \qquad\qquad
+      -\left.\frac{\mathrm dy}{\mathrm dx}\right|_I
+      =\frac{y}{x}=\frac{f(R)}{Q}.
+    \]
+  \end{block}
+\end{frame}
+
+\begin{frame}{How should the virtual crvUSD reserve $f(R)$ be chosen?}
+  Use $y=f(R)$ in the constant product $f(R) \cdot Q=I$. Two requirements guide the choice.
+
+  \begin{block}{During a swap: match the actual crvUSD transfer}
+    When crvUSD enters or leaves the pool, the virtual reserve moves
+    by exactly the same amount as the actual reserve:
+    \[
+      \boxed{\mathrm df=\mathrm dR}.
+    \]
+  \end{block}
+
+  \begin{block}{At the leverage target: close the arbitrage spread}
+    When debt is half the collateral value, the pool must quote the oracle price:
+    \[
+      \boxed{V=2B \quad\Longrightarrow\quad m=\frac{f(R)}{Q}=p_0}.
+    \]
+  \end{block}
+\end{frame}
+
+\begin{frame}{The virtual reserve is a shifted crvUSD balance}
+  The virtual and actual reserves move together, so their difference is constant:
+  \[
+    \frac{\mathrm df}{\mathrm dR}=1
+    \quad\Longrightarrow\quad \boxed{f(R)=R+s}.
+  \]
+  The shift $s$ stays fixed along a swap curve. With $R=C-B$ and $x_0=C+s$,
+  the same invariant can be written in terms of debt:
+  \[
+    (R+s)Q=(x_0-B)Q=I.
+    \qquad ((\text{\scriptsize\color{structure.fg}\href{https://docs.yieldbasis.com/user/economics/math-primer}{YB Math Primer, Eq.~(3.2)}}))
+  \]
+  \begin{block}{The price paid in actual crvUSD}
+    Along this curve, $Q\,\mathrm dB=(x_0-B)\,\mathrm dQ$, so
+    \[
+      m=-\frac{\mathrm dR}{\mathrm dQ}
+      =\frac{\mathrm dB}{\mathrm dQ}=\frac{x_0-B}{Q}.
+    \]
+  \end{block}
+\end{frame}
+
+\begin{frame}{Which point on the swap curve are we looking for?}
+  Take any point $(Q,B)$ on the curve: the pool holds $Q$ LP tokens and
+  owes $B$ crvUSD. With credit capacity $C$ and oracle price $p_0$ fixed,
+  these two balances determine the state:
+  \[
+    (Q,B)\longmapsto (R,V,B)=(C-B,\ p_0Q,\ B).
+  \]
+
+  We want the point where arbitrage stops ($m=p_0$) and the position is worth
+  twice its equity ($L=2$). Call its LP balance $Q_*$ and its debt $B_*$.
+
+  \begin{block}{Read the same balances at that point}
+    Substitute $Q_*$ for $Q$ and $B_*$ for $B$ in the same map:
+    \[
+      (Q_*,B_*)\longmapsto (R_*,V_*,B_*)=(C-B_*,\ p_0Q_*,\ B_*).
+    \]
+    Its equity is $E_*=V_*-B_*=V_*/2$. We can now solve for $Q_*$ and $B_*$.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Which balances satisfy both conditions?}
+  \textbf{Price.} At $(Q_*,B_*)$, the pool quotes the oracle price:
+  \[
+    m_*=\frac{x_0-B_*}{Q_*}=p_0
+    \quad\Longrightarrow\quad x_0-B_*=p_0Q_*.
+  \]
+  \textbf{Leverage.} Divide collateral value by equity and set the ratio to two:
+  \[
+    L_*=\frac{V_*}{V_*-B_*}=2
+    \ \Longrightarrow\ V_*=2(V_*-B_*)
+    \ \Longrightarrow\ V_*=2B_*.
+  \]
+  Since $V_*=p_0Q_*$, the price and leverage equations now give
+  \[
+    x_0-B_*=p_0Q_*=2B_*
+    \ \Longrightarrow\ x_0=3B_*
+    \ \Longrightarrow\ \boxed{B_*=\frac{x_0}{3}}.
+  \]
+  Substituting $B_*=x_0/3$ into $p_0Q_*=2B_*$ gives
+  $\displaystyle \boxed{Q_*=\frac{2x_0}{3p_0}}$.
+\end{frame}
+
+\begin{frame}{Which invariant passes through that point?}
+  On a given swap curve, $(x_0-B)Q=I$ at every point. Its value at the
+  target balances must therefore be the same $I$:
+  \[
+    I=(x_0-B_*)Q_*
+    =\left(x_0-\frac{x_0}{3}\right)\frac{2x_0}{3p_0}
+    =\frac{2x_0}{3}\frac{2x_0}{3p_0}
+    =\boxed{\frac{4x_0^2}{9p_0}}.
+  \]
+  \begin{block}{Back to the current balances $(Q,B)$}
+    We have used the target to fix the relation between $I$ and $x_0$.
+    The current balances must lie on that same curve:
+    \[
+      (x_0-B)Q=\frac{4x_0^2}{9p_0}.
+    \]
+  \end{block}
+\end{frame}
+
+\begin{frame}{Which curve passes through today's position?}
+  Given debt $B$ and collateral value $V=p_0Q$, solve for $x_0$:
+  \begin{columns}[c,onlytextwidth]
+    \begin{column}{.62\textwidth}
+      \[
+        (x_0-B)Q=\frac{4x_0^2}{9p_0}
+        \quad\Longrightarrow\quad
+        \frac49x_0^2-Vx_0+VB=0.
+      \]
+      \[
+        x_0^\pm=\frac98\!\left(V\pm\sqrt{V^2-\tfrac{16}{9}VB}\right).
+      \]
+    \end{column}
+    \begin{column}{.35\textwidth}
+      \includegraphics[width=\linewidth]{figures/negative-anecdote.png}
+    \end{column}
+  \end{columns}
+  \begin{block}{$x_0^+$ or $x_0^-$?}
+    \[
+      x_0^+=\tfrac32 V_*,\qquad x_0^-=\tfrac34 V_*.
+    \]
+    \[
+      \frac{m_*}{p_0}=\frac{x_0-B_*}{V_*}
+      =
+      \begin{cases}
+        \tfrac32-\tfrac12=\textcolor{structure.fg}{\boxed{1}} & (+),\\
+        \tfrac34-\tfrac12=\tfrac14 & (-).
+      \end{cases}
+    \]
+  \end{block}
+\end{frame}
+
+\section{The arbitrage trade}
+\begin{frame}{The debt share determines the price gap}
+  The debt share $r=B/V$ is the fraction of collateral value financed by debt.
+  \[
+    L=\frac{V}{V-B}=\frac{1}{1-r},
+    \qquad r=\tfrac12\ \Longleftrightarrow\ L=2.
+  \]
+  On the upper branch, the normalized quote is
+  \[
+    F(r)=\frac{m}{p_0}=\frac98\!\left(1+\sqrt{1-\tfrac{16}{9}r}\right)-r,
+    \qquad 0\le r\le\tfrac{9}{16}.
+  \]
+  \begin{columns}[c,onlytextwidth]
+    \begin{column}{.54\textwidth}
+      \centering
+      \begin{tikzpicture}[x=41cm,y=3.4cm,>=stealth,font=\scriptsize]
+        % Horizontal coordinates are measured relative to the target r=1/2.
+        \draw[->] (-.086,0) -- (.076,0) node[below right] {$r$};
+        \draw[->] (-.082,-.46) -- (-.082,.38) node[right] {Price gap $m/p_0-1$};
+        \node[left] at (-.082,0) {$0$};
+        \draw[structure.fg,very thick,domain=0:.5,samples=65,variable=\t]
+        plot ({9/16*(1-\t*\t)-.5},{9/8*(1+\t)-9/16*(1-\t*\t)-1});
+        \draw[->,line width=1.5pt,structure.fg] (-.063,0) -- (-.012,0);
+        \draw[->,line width=1.5pt,structure.fg] (.055,0) -- (.012,0);
+        \fill (0,0) circle (1.7pt) node[below left] {$1/2$};
+        \draw[dotted,gray] (.0625,0)--(.0625,-.4375);
+        \node[above] at (.0625,0) {$9/16$};
+      \end{tikzpicture}
+    \end{column}
+    \begin{column}{.43\textwidth}
+      \textbf{Left of the target: $m>p_0$.}\\
+      Traders sell LP to the pool. Its quote falls toward $p_0$ and $r$ rises.
+
+      \medskip
+      \textbf{Right of the target: $m<p_0$.}\\
+      Traders buy LP from the pool. Its quote rises toward $p_0$ and $r$ falls.
+    \end{column}
+  \end{columns}
+
+  \medskip
+  \centering At $r=1/2$, the spread vanishes: $m=p_0$ and leverage is $2\times$.
+\end{frame}
+\end{document}

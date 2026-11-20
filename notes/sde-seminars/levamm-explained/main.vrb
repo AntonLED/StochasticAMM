@@ -1,0 +1,18 @@
+\frametitle{What does LevAMM manage?}
+\begin{tabular}{@{}cll}
+    \structure{\Large $R$} & Available reserve & crvUSD still available to lend \\[.35em]
+    \structure{\Large $V$} & Collateral value & $Q$ Curve LP tokens valued at $V=p_0Q$ \\[.35em]
+    \structure{\Large $B$} & Outstanding debt & Total crvUSD borrowed against the position
+  \end{tabular}
+  \begin{block}{The contract identifies the credit capacity $C=R+B$}
+\begin{verbatim}
+def max_debt() -> uint256:
+    ...
+    return staticcall STABLECOIN.balanceOf(self) + self._debt()
+\end{verbatim}
+  \end{block}
+  \small At fixed $C$ and LP price $p_0$, tracking $(Q,B)$ recovers all three:
+  \[
+    (R,V,B)=(C-B,\ p_0Q,\ B).
+  \]
+  {\scriptsize\href{https://github.com/yield-basis/yb-core/blob/master/contracts/AMM.vy\#L439-L445}{Yield Basis contract source: AMM.vy, max\_debt()}}
